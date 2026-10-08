@@ -1,0 +1,11 @@
+"use client";
+import {useEffect,useState} from 'react';
+import {Button} from '@/components/ui/button';
+import {Select,SelectTrigger,SelectValue,SelectContent,SelectItem} from '@/components/ui/select';
+import type {Business,DocumentNumberingMode} from '@/lib/model';
+
+export default function DocumentNumberingSettings({business,busy,save}:{business:Business;busy:boolean;save:(body:any,message:string)=>Promise<any>}){
+ const [mode,setMode]=useState<DocumentNumberingMode>(business.document_numbering_mode);
+ useEffect(()=>setMode(business.document_numbering_mode),[business.document_numbering_mode]);
+ return <section className="panel settings-panel"><h2>Document control numbers</h2><p className="muted">Choose how new documents and media are numbered for this business.</p><form onSubmit={async e=>{e.preventDefault();if(busy)return;await save({action:'documentNumberingSettings',mode},'Document control numbering saved. Existing numbers unchanged.');}}><label className="field"><span>Numbering method</span><Select value={mode} disabled={busy} onValueChange={v=>setMode(v as DocumentNumberingMode)}><SelectTrigger aria-label="Document control numbering method" className="pick"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="automatic">System-generated unique numbers</SelectItem><SelectItem value="custom">Use my business’s own numbers</SelectItem></SelectContent></Select></label><p className="form-note">{mode==='automatic'?'Each new document or media item automatically receives a number such as CDT-00000001 when saved. The sequence is shared across businesses, so your numbers may have gaps. System numbers are unique across Child Care DocTrain.':'Enter a control number in your own format for each new document or media item, such as POLICY-HS-001. Each number must be unique within your business. The CDT numeric format is reserved for system numbering.'}</p><p className="form-note">Changing this setting affects new items. Existing documents keep their numbers, every revision keeps its original control number, and archived or deleted numbers stay reserved.</p><Button type="submit" disabled={busy||mode===business.document_numbering_mode}>{busy?'Saving…':'Save numbering method'}</Button></form></section>;
+}

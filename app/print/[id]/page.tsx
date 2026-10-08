@@ -1,0 +1,19 @@
+import {requireChatGPTUser} from '@/app/chatgpt-auth';
+import {context,stmt} from '@/lib/store';
+export const dynamic='force-dynamic';
+export default async function PrintPage({params}:{params:Promise<{id:string}>}){
+ const {id}=await params;return <PrintDocument id={id}/>;
+}
+async function PrintDocument({id}:{id:string}){
+ await requireChatGPTUser('/print/'+id);const ctx=await context();
+ const r=await stmt('SELECT r.*,d.title,d.code,d.current_revision_id,d.archived,d.staff_access,d.deleted_at,d.deletion_reason,d.deleted_by FROM revisions r JOIN documents d ON d.id=r.document_id AND d.business_id=r.business_id WHERE r.id=? AND r.business_id=?',id,ctx.business.id).first<any>();
+ if(!r||(ctx.actor.role!=='owner'&&(r.status!=='released'||r.archived||r.id!==r.current_revision_id||r.staff_access!=='view_print')))return <main style={{padding:'3rem'}}><h1>Print view unavailable</h1><p>Your business owner controls printing access. Open available items from your library.</p><a href="/">Return to workspace</a></main>;
+ const fileUrl='/api/files/'+id,printable=r.mime==='application/pdf'||r.mime?.startsWith('image/')||!r.file_key;
+ return <main className="print-document"><style>{'.print-document{max-width:900px;margin:2rem auto;background:white;padding:2.5rem}.print-document header{border-bottom:2px solid #137b70;padding-bottom:1.5rem;margin-bottom:1.5rem}.print-document header p{margin-top:.5rem;font-size:.875rem;color:#60717a}.print-document pre{white-space:pre-wrap;font-family:inherit;line-height:1.8;margin:1.5rem 0}.print-document iframe{width:100%;height:70vh;border:1px solid #dde6e3}.print-document img{max-width:100%}.print-document footer{border-top:1px solid #dce5e0;margin-top:2rem;padding-top:1rem;font-size:.75rem;color:#70867b}.print-note{padding:1rem;background:#eef6f2;margin:1rem 0;font-size:.875rem}@media print{body{background:white}.print-document{margin:0;padding:0;max-width:none}.print-note,.print-links{display:none}.print-document header{margin-bottom:1rem}.print-document footer{position:static}.print-document iframe{height:80vh}}'}</style><header><p>{ctx.business.name} · childcaredoctrain.com</p><h1>{r.title}</h1><p>{r.code} · Revision {r.version} · {r.status.toUpperCase()}{r.deleted_at?' · DELETED':r.archived?' · ARCHIVED':''}</p><p>Released: {r.released_at?new Date(r.released_at).toLocaleDateString('en-CA',{timeZone:ctx.business.timezone}):'Not released'} · Created by {r.author}</p>{r.approved_by&&<p>Approved for release by {r.approved_by} · {new Date(r.approved_at).toLocaleString('en-CA',{timeZone:ctx.business.timezone})}</p>}</header>
+ {r.deleted_at&&<div className="deleted-document-notice"><strong>Deleted by {r.deleted_by}</strong><p>Reason: {r.deletion_reason}</p></div>}
+ {r.status!=='released'||r.archived?<div className="warning-banner">This copy is retained for owner review and must not be used as a current procedure.</div>:null}
+ <div className="print-note">{r.mime==='application/pdf'?'Use the PDF viewer’s print control to print the uploaded document. Include this cover page for its revision details.':printable?'Use your browser’s Print command (Ctrl+P or Cmd+P).':'Download this document and use its original application to print it.'}</div>
+ <div className="print-links"><a className="button-link" href="/">Return to workspace</a> <a className="button-link" href={fileUrl+'?download=1'}>Download file</a></div>
+ {!r.file_key?<pre>{r.content}</pre>:r.mime==='application/pdf'?<iframe title={r.title} src={fileUrl}/>:r.mime?.startsWith('image/')?<img alt={r.title} src={fileUrl}/>:<p style={{marginTop:'2rem'}}>File: {r.filename}</p>}
+ <footer>Printed copies are uncontrolled. Confirm the current released revision at childcaredoctrain.com before use. Print view generated {new Date().toLocaleString('en-CA',{timeZone:ctx.business.timezone})} ({ctx.business.timezone}).</footer></main>;
+}

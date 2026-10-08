@@ -1,0 +1,1 @@
+ALTER TABLE `documents` ADD `staff_access` text DEFAULT 'view_print' NOT NULL;
